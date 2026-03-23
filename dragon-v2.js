@@ -401,6 +401,35 @@ for (const h of headSpines) {
   headGroup.add(horn);
 }
 
+// ── Unicorn Horn ─────────────────────────────────────────────
+const unicornHornMat = new THREE.MeshStandardMaterial({
+  color: 0xffd7ff, roughness: 0.15, metalness: 0.6,
+  emissive: 0xdd88ff, emissiveIntensity: 0.3,
+});
+const hornGeo = new THREE.ConeGeometry(0.055, 0.55, 8);
+// Twist the horn for spiral effect
+const hornPos = hornGeo.attributes.position;
+for (let i = 0; i < hornPos.count; i++) {
+  let x = hornPos.getX(i), y = hornPos.getY(i), z = hornPos.getZ(i);
+  const twist = y * 3.0;
+  const nx = x * Math.cos(twist) - z * Math.sin(twist);
+  const nz = x * Math.sin(twist) + z * Math.cos(twist);
+  // Taper
+  const taper = 1 - (y + 0.275) / 0.55 * 0.3;
+  hornPos.setXYZ(i, nx * taper, y, nz * taper);
+}
+hornGeo.computeVertexNormals();
+const unicornHorn = new THREE.Mesh(hornGeo, unicornHornMat);
+unicornHorn.position.set(0, 0.58, 0.15);
+unicornHorn.rotation.x = -0.2;
+unicornHorn.castShadow = true;
+headGroup.add(unicornHorn);
+
+// Small glow at horn tip
+const hornGlow = new THREE.PointLight(0xdd88ff, 1.2, 2.5);
+hornGlow.position.set(0, 0.85, 0.2);
+headGroup.add(hornGlow);
+
 dragon.add(headGroup);
 
 // ── Back spines ──────────────────────────────────────────────
@@ -421,13 +450,25 @@ for (let i = 0; i < 13; i++) {
 // ── Tail ─────────────────────────────────────────────────────
 const tailGroup = new THREE.Group();
 const tailSegs = 11;
+const tailMats = [];
+for (let i = 0; i < tailSegs; i++) {
+  const t = i / tailSegs;
+  const darkColor = new THREE.Color(0x4422aa);
+  const lightColor = new THREE.Color(0xddaaff);
+  const col = darkColor.clone().lerp(lightColor, t);
+  tailMats.push(new THREE.MeshStandardMaterial({
+    map: scaleTex, bumpMap: scaleBmp, bumpScale: 0.2,
+    color: col, roughness: 0.45, metalness: 0.2,
+    emissive: col.clone().multiplyScalar(0.1), emissiveIntensity: t * 0.3,
+  }));
+}
 let tx = 0, ty = -0.08, tz = -1.15;
 for (let i = 0; i < tailSegs; i++) {
   const t = i / tailSegs;
   const r = THREE.MathUtils.lerp(0.26, 0.04, t * t);
   const sg = new THREE.SphereGeometry(r, 16, 16);
   sg.scale(1, 0.88, 1.18);
-  const seg = new THREE.Mesh(sg, bodyMat);
+  const seg = new THREE.Mesh(sg, tailMats[i]);
   seg.castShadow = true;
   tx += Math.sin(t * 2.8) * 0.1;
   ty -= t * 0.055;
@@ -628,6 +669,55 @@ const eMat = new THREE.PointsMaterial({ size: 0.045, transparent: true, opacity:
 const sparkles = new THREE.Points(eGeo, eMat);
 scene.add(sparkles);
 
+// ── Click/Touch Glow Effect ───────────────────────────────────
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const glowParticles = [];
+
+function spawnGlow(point) {
+  const count = 15;
+  for (let i = 0; i < count; i++) {
+    const geo = new THREE.SphereGeometry(0.03, 8, 8);
+    const palette = [0xff88dd, 0x88ddff, 0xddaaff, 0xffdd88];
+    const mat = new THREE.MeshBasicMaterial({
+      color: palette[Math.floor(Math.random() * palette.length)],
+      transparent: true, opacity: 1.0,
+    });
+    const p = new THREE.Mesh(geo, mat);
+    p.position.copy(point);
+    p.userData.vel = new THREE.Vector3(
+      (Math.random() - 0.5) * 0.06,
+      Math.random() * 0.04 + 0.02,
+      (Math.random() - 0.5) * 0.06
+    );
+    p.userData.life = 1.0;
+    scene.add(p);
+    glowParticles.push(p);
+  }
+}
+
+function onDragonClick(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const clientX = event.touches ? event.touches[0].clientX : event.clientX;
+  const clientY = event.touches ? event.touches[0].clientY : event.clientY;
+  mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObject(dragon, true);
+  if (hits.length > 0) {
+    spawnGlow(hits[0].point);
+  }
+}
+renderer.domElement.addEventListener("click", onDragonClick);
+renderer.domElement.addEventListener("touchend", onDragonClick, { passive: true });
+
+// ── Roar System ──────────────────────────────────────────────
+let roarTimer = 0;
+let nextRoar = 5 + Math.random() * 8; // first roar 5-13s in
+let isRoaring = false;
+let roarProgress = 0;
+const ROAR_DURATION = 1.2; // seconds
+
 // ── Animation phases ─────────────────────────────────────────
 // Phase 0: Idle (0–3s) — breathing, looking around
 // Phase 1: Running (3–6s) — legs pumping, moving forward, wings start
@@ -784,11 +874,13 @@ function animate() {
     leftWing.rotation.x = Math.sin(ft * 6 + 0.4) * 0.08;
     rightWing.rotation.x = Math.sin(ft * 6 + 0.4) * 0.08;
 
-    // Legs tucked
-    legFL.rotation.x = -0.1;
-    legFR.rotation.x = -0.1;
-    legBL.rotation.x = 0.1;
-    legBR.rotation.x = 0.1;
+    // Legs — slow walking motion in flight
+    const walkSpeed = 2.0;
+    const walkAmp = 0.15;
+    legFL.rotation.x = Math.sin(ft * walkSpeed) * walkAmp;
+    legFR.rotation.x = Math.sin(ft * walkSpeed + Math.PI) * walkAmp;
+    legBL.rotation.x = Math.sin(ft * walkSpeed + Math.PI) * walkAmp * 0.8;
+    legBR.rotation.x = Math.sin(ft * walkSpeed) * walkAmp * 0.8;
 
     // Head looking forward
     headGroup.rotation.x = -0.06;
@@ -825,6 +917,48 @@ function animate() {
   eMat.opacity = 0.5 + Math.sin(t * 2) * 0.2;
 
   stMat.opacity = 0.65 + Math.sin(t * 0.45) * 0.15;
+
+  // ── Roar logic ──
+  if (!isRoaring && t > nextRoar) {
+    isRoaring = true;
+    roarProgress = 0;
+    roarTimer = t;
+    // Spawn burst particles from mouth
+    const mouthWorld = new THREE.Vector3(0, -0.1, 0.8);
+    headGroup.localToWorld(mouthWorld);
+    spawnGlow(mouthWorld);
+  }
+  if (isRoaring) {
+    roarProgress = (t - roarTimer) / ROAR_DURATION;
+    if (roarProgress < 1) {
+      // Open mouth: head tilts back, then snaps forward
+      const roarCurve = Math.sin(roarProgress * Math.PI);
+      headGroup.rotation.x += roarCurve * 0.25;
+      headGroup.position.y += roarCurve * 0.04;
+      // Horn glow intensifies
+      hornGlow.intensity = 1.2 + roarCurve * 3;
+    } else {
+      isRoaring = false;
+      hornGlow.intensity = 1.2;
+      nextRoar = t + 6 + Math.random() * 10;
+    }
+  }
+
+  // ── Glow particles update ──
+  for (let i = glowParticles.length - 1; i >= 0; i--) {
+    const p = glowParticles[i];
+    p.position.add(p.userData.vel);
+    p.userData.vel.y -= 0.0008; // gravity
+    p.userData.life -= 0.02;
+    p.material.opacity = Math.max(0, p.userData.life);
+    p.scale.setScalar(p.userData.life);
+    if (p.userData.life <= 0) {
+      scene.remove(p);
+      p.geometry.dispose();
+      p.material.dispose();
+      glowParticles.splice(i, 1);
+    }
+  }
 
   renderer.render(scene, camera);
 }
