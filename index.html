@@ -45,6 +45,7 @@
   <div id="switcher">
     <button id="btn-v1" onclick="loadVersion('v1')">Simple</button>
     <button id="btn-v2" class="active" onclick="loadVersion('v2')">Realistic</button>
+    <button id="btn-cam" class="active" onclick="toggleCam()">📷 Follow</button>
   </div>
 
   <script type="importmap">
@@ -78,6 +79,15 @@
       // Update button states
       document.getElementById('btn-v1').classList.toggle('active', version === 'v1');
       document.getElementById('btn-v2').classList.toggle('active', version === 'v2');
+    }
+
+    function toggleCam() {
+      if (window.__dragonCamFollow) {
+        const on = window.__dragonCamFollow();
+        const btn = document.getElementById('btn-cam');
+        btn.classList.toggle('active', on);
+        btn.textContent = on ? '📷 Follow' : '📷 Free';
+      }
     }
     // Load v2 (realistic) by default
     loadVersion('v2');

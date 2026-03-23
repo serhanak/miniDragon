@@ -154,6 +154,14 @@ controls.minDistance = 2.0;
 controls.maxDistance = 20;
 controls.update();
 
+// ── Camera Follow Toggle ─────────────────────────────────────
+let cameraFollow = true;
+const CAM_OFFSET = new THREE.Vector3(2.5, 2.0, 3.5);
+window.__dragonCamFollow = () => {
+  cameraFollow = !cameraFollow;
+  return cameraFollow;
+};
+
 // Stop auto-rotate on user interaction, resume after idle
 let userInteractTimeout;
 function onUserInteract() {
@@ -893,10 +901,12 @@ function animate() {
     });
   }
 
-  // ── Camera follows dragon (update OrbitControls target) ──
-  if (t > IDLE_END) {
-    const smoothing = 0.05;
+  // ── Camera follows dragon ──
+  if (cameraFollow) {
+    const smoothing = 0.06;
     controls.target.lerp(dragon.position, smoothing);
+    const desiredCam = dragon.position.clone().add(CAM_OFFSET);
+    camera.position.lerp(desiredCam, smoothing * 0.5);
   }
   controls.update();
 
