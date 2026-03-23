@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 // ══════════════════════════════════════════════════════════════
-//  Mini Dragon v2 — Realistic (bright green, ref-matching)
+//  Mini Dragon v2 — Fairy Dragon (idle → run → takeoff → orbit)
 // ══════════════════════════════════════════════════════════════
 
 // ── Procedural scale texture ─────────────────────────────────
@@ -147,12 +147,11 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 0.3, 0);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 0.8;
+controls.autoRotate = false;
 controls.maxPolarAngle = Math.PI * 0.75;
-controls.minPolarAngle = Math.PI * 0.15;
-controls.minDistance = 2.5;
-controls.maxDistance = 12;
+controls.minPolarAngle = Math.PI * 0.05;
+controls.minDistance = 2.0;
+controls.maxDistance = 20;
 controls.update();
 
 // Stop auto-rotate on user interaction, resume after idle
@@ -200,24 +199,24 @@ const scaleBmp = createScaleBump();
 const bellyTex = createBellyTexture();
 const wingTex = createWingTexture();
 
-// ── Materials (bright greens matching reference) ─────────────
+// ── Materials (fairy dragon — iridescent purples, blues, pinks) ──
 const bodyMat = new THREE.MeshStandardMaterial({
   map: scaleTex, bumpMap: scaleBmp, bumpScale: 0.3,
-  color: 0x3aaa3a, roughness: 0.55, metalness: 0.1,
+  color: 0x7744cc, roughness: 0.45, metalness: 0.2,
 });
 const bellyMat = new THREE.MeshStandardMaterial({
-  map: bellyTex, color: 0x9ade9a, roughness: 0.7, metalness: 0.05,
+  map: bellyTex, color: 0xccaaee, roughness: 0.6, metalness: 0.1,
 });
 const darkMat = new THREE.MeshStandardMaterial({
   map: scaleTex, bumpMap: scaleBmp, bumpScale: 0.2,
-  color: 0x28822d, roughness: 0.5, metalness: 0.15,
+  color: 0x5533aa, roughness: 0.45, metalness: 0.2,
 });
 const eyeOuterMat = new THREE.MeshStandardMaterial({
-  color: 0xdddd44, emissive: 0xaaaa22, emissiveIntensity: 0.35,
-  roughness: 0.15, metalness: 0.1,
+  color: 0x88ddff, emissive: 0x44aadd, emissiveIntensity: 0.55,
+  roughness: 0.1, metalness: 0.15,
 });
 const irisMat = new THREE.MeshStandardMaterial({
-  color: 0xeedd00, emissive: 0xccaa00, emissiveIntensity: 0.55,
+  color: 0x66eeff, emissive: 0x44ccdd, emissiveIntensity: 0.65,
   roughness: 0.1, metalness: 0.15,
 });
 const pupilMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 });
@@ -226,13 +225,14 @@ const glossMat = new THREE.MeshStandardMaterial({
   roughness: 0.0, metalness: 0.0,
 });
 const wingMemMat = new THREE.MeshStandardMaterial({
-  map: wingTex, color: 0x3ab03a, roughness: 0.45, metalness: 0.08,
-  side: THREE.DoubleSide, transparent: true, opacity: 0.78,
+  map: wingTex, color: 0xaa66ee, roughness: 0.3, metalness: 0.15,
+  side: THREE.DoubleSide, transparent: true, opacity: 0.65,
+  emissive: 0x6633aa, emissiveIntensity: 0.15,
 });
-const hornMat = new THREE.MeshStandardMaterial({ color: 0xd8ccb0, roughness: 0.35, metalness: 0.35 });
-const clawMat = new THREE.MeshStandardMaterial({ color: 0xccbfa0, roughness: 0.3, metalness: 0.4 });
-const spineMat = new THREE.MeshStandardMaterial({ color: 0x2d902d, roughness: 0.45, metalness: 0.15 });
-const nostrilMat = new THREE.MeshStandardMaterial({ color: 0x0e350e, roughness: 0.9 });
+const hornMat = new THREE.MeshStandardMaterial({ color: 0xddccff, roughness: 0.3, metalness: 0.4 });
+const clawMat = new THREE.MeshStandardMaterial({ color: 0xccbbee, roughness: 0.3, metalness: 0.4 });
+const spineMat = new THREE.MeshStandardMaterial({ color: 0x9966dd, roughness: 0.4, metalness: 0.2 });
+const nostrilMat = new THREE.MeshStandardMaterial({ color: 0x2a1155, roughness: 0.9 });
 
 // ── Helper ───────────────────────────────────────────────────
 function noise2(a, b) {
@@ -584,7 +584,7 @@ for (let i = 0; i < gp.count; i++) {
   gp.setZ(i, (Math.sin(x * 0.5) * Math.cos(y * 0.3) + Math.sin(x * 1.2 + y * 0.8) * 0.3) * 0.12);
 }
 gGeo.computeVertexNormals();
-const grd = new THREE.Mesh(gGeo, new THREE.MeshStandardMaterial({ color: 0x1a2a3c, roughness: 0.85, metalness: 0.12 }));
+const grd = new THREE.Mesh(gGeo, new THREE.MeshStandardMaterial({ color: 0x1a1c3a, roughness: 0.85, metalness: 0.12 }));
 grd.rotation.x = -Math.PI / 2;
 grd.position.y = -1.05;
 grd.receiveShadow = true;
@@ -606,24 +606,45 @@ stGeo.setAttribute("position", new THREE.BufferAttribute(stP, 3));
 const stMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.07, transparent: true, opacity: 0.8, sizeAttenuation: true });
 scene.add(new THREE.Points(stGeo, stMat));
 
-// ── Embers ───────────────────────────────────────────────────
-const eC = 70;
+// ── Fairy Sparkles ───────────────────────────────────────────
+const eC = 100;
 const eP = new Float32Array(eC * 3);
 const eV = [];
+const eColors = new Float32Array(eC * 3);
 for (let i = 0; i < eC; i++) {
-  eP[i*3] = (Math.random()-0.5)*11;
-  eP[i*3+1] = Math.random()*5-1;
-  eP[i*3+2] = (Math.random()-0.5)*11;
-  eV.push(new THREE.Vector3((Math.random()-0.5)*0.002, Math.random()*0.004+0.002, (Math.random()-0.5)*0.002));
+  eP[i*3] = (Math.random()-0.5)*8;
+  eP[i*3+1] = Math.random()*4-0.5;
+  eP[i*3+2] = (Math.random()-0.5)*8;
+  eV.push(new THREE.Vector3((Math.random()-0.5)*0.003, Math.random()*0.005+0.003, (Math.random()-0.5)*0.003));
+  // Random pastel colors: pink, blue, purple, gold
+  const palette = [[1,0.6,0.9],[0.6,0.8,1],[0.8,0.6,1],[1,0.9,0.5]];
+  const pc = palette[Math.floor(Math.random()*palette.length)];
+  eColors[i*3] = pc[0]; eColors[i*3+1] = pc[1]; eColors[i*3+2] = pc[2];
 }
 const eGeo = new THREE.BufferGeometry();
 eGeo.setAttribute("position", new THREE.BufferAttribute(eP, 3));
-const eMat = new THREE.PointsMaterial({ color: 0xffaa44, size: 0.035, transparent: true, opacity: 0.55 });
-const embers = new THREE.Points(eGeo, eMat);
-scene.add(embers);
+eGeo.setAttribute("color", new THREE.BufferAttribute(eColors, 3));
+const eMat = new THREE.PointsMaterial({ size: 0.045, transparent: true, opacity: 0.7, vertexColors: true });
+const sparkles = new THREE.Points(eGeo, eMat);
+scene.add(sparkles);
 
-// ── Animation ────────────────────────────────────────────────
+// ── Animation phases ─────────────────────────────────────────
+// Phase 0: Idle (0–3s) — breathing, looking around
+// Phase 1: Running (3–6s) — legs pumping, moving forward, wings start
+// Phase 2: Takeoff (6–8s) — rising off ground, wings flapping hard
+// Phase 3: Flight (8s+) — steady circular orbit
+
 const clock = new THREE.Clock();
+const IDLE_END = 3.0;
+const RUN_END = 6.0;
+const TAKEOFF_END = 8.0;
+const ORBIT_RADIUS = 5.0;
+const ORBIT_HEIGHT = 3.5;
+const ORBIT_SPEED = 0.4;
+
+// Store initial dragon position
+const startPos = dragon.position.clone();
+const startY = startPos.y;
 
 let animId;
 function animate() {
@@ -631,48 +652,177 @@ function animate() {
   animId = requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
 
-  controls.update();
-
-  // Breathing
+  // Breathing (always active)
   const br = Math.sin(t * 1.2) * 0.018;
   body.scale.set(1 + br, 1 + br * 0.5, 1 + br);
   belly.scale.set(1 + br * 0.6, 1 + br * 0.35, 1 + br * 0.6);
 
-  // Head
-  headGroup.rotation.x = Math.sin(t * 0.9) * 0.035;
-  headGroup.rotation.y = Math.sin(t * 0.55) * 0.05;
-  headGroup.position.y = 0.65 + Math.sin(t * 1.2) * 0.012;
+  // ── Phase 0: Idle ──
+  if (t < IDLE_END) {
+    // Gentle head movement
+    headGroup.rotation.x = Math.sin(t * 0.9) * 0.04;
+    headGroup.rotation.y = Math.sin(t * 0.55) * 0.06;
+    headGroup.position.y = 0.65 + Math.sin(t * 1.2) * 0.012;
 
-  // Wings
-  const flap = Math.sin(t * 1.5) * 0.18 + 0.08;
-  leftWing.rotation.z = -flap;
-  rightWing.rotation.z = flap;
-  leftWing.rotation.x = Math.sin(t * 1.5 + 0.4) * 0.06;
-  rightWing.rotation.x = Math.sin(t * 1.5 + 0.4) * 0.06;
+    // Gentle wing fold
+    const flap = Math.sin(t * 1.5) * 0.12 + 0.05;
+    leftWing.rotation.z = -flap;
+    rightWing.rotation.z = flap;
 
-  // Tail
-  tailGroup.children.forEach((seg, i) => {
-    if (seg.isMesh) seg.position.x += Math.sin(t * 1.1 + i * 0.42) * 0.0008;
-  });
+    // Tail sway
+    tailGroup.children.forEach((seg, i) => {
+      if (seg.isMesh) seg.position.x += Math.sin(t * 1.1 + i * 0.42) * 0.0008;
+    });
 
-  // Legs
-  [legFL, legFR, legBL, legBR].forEach((l, i) => {
-    l.rotation.x = (i < 2 ? 0.18 : -0.18) + Math.sin(t * 0.65 + i * 1.1) * 0.02;
-  });
+    // Legs idle
+    [legFL, legFR, legBL, legBR].forEach((l, i) => {
+      l.rotation.x = (i < 2 ? 0.18 : -0.18) + Math.sin(t * 0.65 + i * 1.1) * 0.02;
+    });
+  }
 
-  // Embers
-  const ep = embers.geometry.attributes.position.array;
+  // ── Phase 1: Running ──
+  else if (t < RUN_END) {
+    const rt = t - IDLE_END;
+    const runSpeed = 8.0;
+    const stride = 0.35;
+
+    // Legs running — alternating gait
+    legFL.rotation.x = 0.18 + Math.sin(rt * runSpeed) * stride;
+    legFR.rotation.x = 0.18 + Math.sin(rt * runSpeed + Math.PI) * stride;
+    legBL.rotation.x = -0.18 + Math.sin(rt * runSpeed + Math.PI) * stride;
+    legBR.rotation.x = -0.18 + Math.sin(rt * runSpeed) * stride;
+
+    // Body bob while running
+    dragon.position.y = startY + Math.abs(Math.sin(rt * runSpeed)) * 0.05;
+
+    // Move forward (along +z)
+    const runDist = rt * 0.8;
+    dragon.position.z = startPos.z + runDist;
+
+    // Head bobs
+    headGroup.rotation.x = Math.sin(rt * runSpeed * 0.5) * 0.06;
+    headGroup.position.y = 0.65 + Math.sin(rt * runSpeed) * 0.02;
+
+    // Wings start flapping faster as running progresses
+    const flapIntensity = 0.15 + rt / (RUN_END - IDLE_END) * 0.35;
+    const flapSpeed = 3 + rt / (RUN_END - IDLE_END) * 5;
+    const flap = Math.sin(rt * flapSpeed) * flapIntensity + 0.1;
+    leftWing.rotation.z = -flap;
+    rightWing.rotation.z = flap;
+
+    // Tail streams behind
+    tailGroup.children.forEach((seg, i) => {
+      if (seg.isMesh) seg.position.x += Math.sin(rt * 2 + i * 0.5) * 0.001;
+    });
+  }
+
+  // ── Phase 2: Takeoff ──
+  else if (t < TAKEOFF_END) {
+    const tt = t - RUN_END;
+    const takeoffDuration = TAKEOFF_END - RUN_END;
+    const progress = tt / takeoffDuration; // 0 → 1
+
+    // Ease-in-out for smooth rise
+    const eased = progress * progress * (3 - 2 * progress);
+
+    // Position: rise up and start curving into orbit
+    const runEndZ = startPos.z + (RUN_END - IDLE_END) * 0.8;
+    const orbitAngleStart = Math.atan2(runEndZ, 0); // angle from center
+    const targetAngle = orbitAngleStart + progress * 0.5;
+
+    dragon.position.x = THREE.MathUtils.lerp(startPos.x, Math.sin(targetAngle) * ORBIT_RADIUS, eased);
+    dragon.position.y = THREE.MathUtils.lerp(startY, startY + ORBIT_HEIGHT, eased);
+    dragon.position.z = THREE.MathUtils.lerp(runEndZ, Math.cos(targetAngle) * ORBIT_RADIUS, eased);
+
+    // Dragon faces flight direction
+    dragon.rotation.y = THREE.MathUtils.lerp(0, targetAngle + Math.PI / 2, eased);
+
+    // Wings flapping hard
+    const flap = Math.sin(tt * 10) * 0.55 + 0.15;
+    leftWing.rotation.z = -flap;
+    rightWing.rotation.z = flap;
+    leftWing.rotation.x = Math.sin(tt * 10 + 0.4) * 0.1;
+    rightWing.rotation.x = Math.sin(tt * 10 + 0.4) * 0.1;
+
+    // Legs tuck
+    const tuck = eased * 0.4;
+    legFL.rotation.x = 0.18 - tuck;
+    legFR.rotation.x = 0.18 - tuck;
+    legBL.rotation.x = -0.18 + tuck;
+    legBR.rotation.x = -0.18 + tuck;
+
+    // Head looks forward/up
+    headGroup.rotation.x = -0.1 * eased;
+    headGroup.position.y = 0.65;
+
+    // Tail straight
+    tailGroup.children.forEach((seg, i) => {
+      if (seg.isMesh) seg.position.x *= 0.98;
+    });
+  }
+
+  // ── Phase 3: Circular flight orbit ──
+  else {
+    const ft = t - TAKEOFF_END;
+    const angle = ft * ORBIT_SPEED;
+
+    // Circular path
+    dragon.position.x = Math.sin(angle) * ORBIT_RADIUS;
+    dragon.position.z = Math.cos(angle) * ORBIT_RADIUS;
+    dragon.position.y = startY + ORBIT_HEIGHT + Math.sin(ft * 1.5) * 0.15; // gentle bob
+
+    // Face tangent direction (perpendicular to radius)
+    dragon.rotation.y = angle + Math.PI / 2;
+
+    // Slight bank into turn
+    dragon.rotation.z = Math.sin(ft * 0.8) * 0.05 + 0.08;
+
+    // Steady wing flapping
+    const flap = Math.sin(ft * 6) * 0.4 + 0.15;
+    leftWing.rotation.z = -flap;
+    rightWing.rotation.z = flap;
+    leftWing.rotation.x = Math.sin(ft * 6 + 0.4) * 0.08;
+    rightWing.rotation.x = Math.sin(ft * 6 + 0.4) * 0.08;
+
+    // Legs tucked
+    legFL.rotation.x = -0.1;
+    legFR.rotation.x = -0.1;
+    legBL.rotation.x = 0.1;
+    legBR.rotation.x = 0.1;
+
+    // Head looking forward
+    headGroup.rotation.x = -0.06;
+    headGroup.rotation.y = Math.sin(ft * 0.4) * 0.04;
+    headGroup.position.y = 0.65;
+
+    // Tail flows behind
+    tailGroup.children.forEach((seg, i) => {
+      if (seg.isMesh) seg.position.x = Math.sin(ft * 2 + i * 0.5) * 0.015 * (i + 1);
+    });
+  }
+
+  // ── Camera follows dragon (update OrbitControls target) ──
+  if (t > IDLE_END) {
+    const smoothing = 0.05;
+    controls.target.lerp(dragon.position, smoothing);
+  }
+  controls.update();
+
+  // ── Sparkles follow dragon ──
+  const ep = sparkles.geometry.attributes.position.array;
   for (let i = 0; i < eC; i++) {
     ep[i*3] += eV[i].x;
     ep[i*3+1] += eV[i].y;
     ep[i*3+2] += eV[i].z;
-    if (ep[i*3+1] > 6) {
-      ep[i*3] = (Math.random()-0.5)*11;
-      ep[i*3+1] = -1;
-      ep[i*3+2] = (Math.random()-0.5)*11;
+    if (ep[i*3+1] > 6 || Math.random() < 0.003) {
+      // Respawn near dragon
+      ep[i*3] = dragon.position.x + (Math.random()-0.5)*2;
+      ep[i*3+1] = dragon.position.y + (Math.random()-0.5)*1.5;
+      ep[i*3+2] = dragon.position.z + (Math.random()-0.5)*2;
     }
   }
-  embers.geometry.attributes.position.needsUpdate = true;
+  sparkles.geometry.attributes.position.needsUpdate = true;
+  eMat.opacity = 0.5 + Math.sin(t * 2) * 0.2;
 
   stMat.opacity = 0.65 + Math.sin(t * 0.45) * 0.15;
 
