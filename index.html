@@ -6,11 +6,47 @@
   <title>Mini Dragon</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; background: #000; }
+    body { overflow: hidden; background: #000; font-family: system-ui, sans-serif; }
     canvas { display: block; }
+    #switcher {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      gap: 4px;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      padding: 5px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    #switcher button {
+      padding: 8px 20px;
+      border: none;
+      border-radius: 7px;
+      background: transparent;
+      color: rgba(255,255,255,0.6);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #switcher button:hover { color: #fff; background: rgba(255,255,255,0.08); }
+    #switcher button.active {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
   </style>
 </head>
 <body>
+  <div id="switcher">
+    <button id="btn-v1" onclick="loadVersion('v1')">Simple</button>
+    <button id="btn-v2" class="active" onclick="loadVersion('v2')">Realistic</button>
+  </div>
+
   <script type="importmap">
     {
       "imports": {
@@ -18,6 +54,32 @@
       }
     }
   </script>
-  <script type="module" src="main.js"></script>
+
+  <script>
+    let currentScript = null;
+    function loadVersion(version) {
+      // Remove existing canvas & script
+      const canvas = document.querySelector('canvas');
+      if (canvas) canvas.remove();
+      if (currentScript) currentScript.remove();
+
+      // Stop any running animation frames (signal via global flag)
+      window.__dragonStop = true;
+      setTimeout(() => {
+        window.__dragonStop = false;
+        const s = document.createElement('script');
+        s.type = 'module';
+        s.src = version === 'v1' ? 'dragon-v1.js' : 'dragon-v2.js';
+        document.body.appendChild(s);
+        currentScript = s;
+      }, 50);
+
+      // Update button states
+      document.getElementById('btn-v1').classList.toggle('active', version === 'v1');
+      document.getElementById('btn-v2').classList.toggle('active', version === 'v2');
+    }
+    // Load v2 (realistic) by default
+    loadVersion('v2');
+  </script>
 </body>
 </html>

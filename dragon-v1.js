@@ -350,8 +350,10 @@ const cameraHeight = 2.5;
 // ── Animation ────────────────────────────────────────────────
 const clock = new THREE.Clock();
 
+let animId;
 function animate() {
-  requestAnimationFrame(animate);
+  if (window.__dragonStop) { cancelAnimationFrame(animId); return; }
+  animId = requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
 
   // Camera orbits slowly
