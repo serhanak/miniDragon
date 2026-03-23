@@ -1,665 +1,512 @@
 import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 // ══════════════════════════════════════════════════════════════
-//  Mini Dragon v2 — Realistic
+//  Mini Dragon v2 — Realistic (bright green, ref-matching)
 // ══════════════════════════════════════════════════════════════
 
-// ── Procedural texture helpers ───────────────────────────────
+// ── Procedural scale texture ─────────────────────────────────
 function createScaleTexture(size = 512) {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext("2d");
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d");
 
-  // Base green
-  ctx.fillStyle = "#2a6e2a";
+  ctx.fillStyle = "#3a9e3a";
   ctx.fillRect(0, 0, size, size);
 
-  // Draw overlapping scales
-  const scaleRows = 24;
-  const scaleCols = 20;
-  const sw = size / scaleCols;
-  const sh = size / scaleRows;
+  const rows = 22, cols = 18;
+  const sw = size / cols, sh = size / rows;
 
-  for (let row = 0; row < scaleRows + 1; row++) {
-    for (let col = 0; col < scaleCols + 1; col++) {
-      const offsetX = row % 2 === 0 ? 0 : sw * 0.5;
-      const cx = col * sw + offsetX;
-      const cy = row * sh;
+  for (let row = 0; row <= rows; row++) {
+    for (let col = 0; col <= cols; col++) {
+      const ox = row % 2 === 0 ? 0 : sw * 0.5;
+      const cx = col * sw + ox, cy = row * sh;
 
-      // Scale shape
-      const grad = ctx.createRadialGradient(cx, cy - sh * 0.2, 0, cx, cy, sh * 0.6);
-      grad.addColorStop(0, "#3a8a3a");
-      grad.addColorStop(0.5, "#2d7a2d");
-      grad.addColorStop(0.85, "#1f5f1f");
-      grad.addColorStop(1, "#1a521a");
+      const g = ctx.createRadialGradient(cx, cy - sh * 0.15, 0, cx, cy, sh * 0.55);
+      g.addColorStop(0, "#4db84d");
+      g.addColorStop(0.45, "#3a9e3a");
+      g.addColorStop(0.8, "#2d852d");
+      g.addColorStop(1, "#257025");
 
       ctx.beginPath();
-      ctx.ellipse(cx, cy, sw * 0.48, sh * 0.55, 0, 0, Math.PI * 2);
-      ctx.fillStyle = grad;
+      ctx.ellipse(cx, cy, sw * 0.47, sh * 0.53, 0, 0, Math.PI * 2);
+      ctx.fillStyle = g;
       ctx.fill();
 
-      // Scale edge highlight
       ctx.beginPath();
-      ctx.ellipse(cx, cy, sw * 0.48, sh * 0.55, 0, Math.PI * 1.1, Math.PI * 1.9);
-      ctx.strokeStyle = "rgba(100, 180, 100, 0.3)";
-      ctx.lineWidth = 1.2;
+      ctx.ellipse(cx, cy, sw * 0.47, sh * 0.53, 0, Math.PI * 1.15, Math.PI * 1.85);
+      ctx.strokeStyle = "rgba(120, 210, 120, 0.25)";
+      ctx.lineWidth = 1;
       ctx.stroke();
     }
   }
 
-  const tex = new THREE.CanvasTexture(canvas);
+  const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(2, 2);
   return tex;
 }
 
-function createScaleBumpMap(size = 512) {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext("2d");
-
+function createScaleBump(size = 512) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d");
   ctx.fillStyle = "#808080";
   ctx.fillRect(0, 0, size, size);
 
-  const scaleRows = 24;
-  const scaleCols = 20;
-  const sw = size / scaleCols;
-  const sh = size / scaleRows;
+  const rows = 22, cols = 18;
+  const sw = size / cols, sh = size / rows;
 
-  for (let row = 0; row < scaleRows + 1; row++) {
-    for (let col = 0; col < scaleCols + 1; col++) {
-      const offsetX = row % 2 === 0 ? 0 : sw * 0.5;
-      const cx = col * sw + offsetX;
-      const cy = row * sh;
-
-      const grad = ctx.createRadialGradient(cx, cy - sh * 0.15, 0, cx, cy + sh * 0.1, sh * 0.55);
-      grad.addColorStop(0, "#e0e0e0");
-      grad.addColorStop(0.6, "#a0a0a0");
-      grad.addColorStop(1, "#606060");
-
+  for (let row = 0; row <= rows; row++) {
+    for (let col = 0; col <= cols; col++) {
+      const ox = row % 2 === 0 ? 0 : sw * 0.5;
+      const cx = col * sw + ox, cy = row * sh;
+      const g = ctx.createRadialGradient(cx, cy - sh * 0.12, 0, cx, cy + sh * 0.08, sh * 0.5);
+      g.addColorStop(0, "#d8d8d8");
+      g.addColorStop(0.5, "#a0a0a0");
+      g.addColorStop(1, "#686868");
       ctx.beginPath();
-      ctx.ellipse(cx, cy, sw * 0.46, sh * 0.52, 0, 0, Math.PI * 2);
-      ctx.fillStyle = grad;
+      ctx.ellipse(cx, cy, sw * 0.45, sh * 0.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = g;
       ctx.fill();
     }
   }
 
-  const tex = new THREE.CanvasTexture(canvas);
+  const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(2, 2);
   return tex;
 }
 
 function createBellyTexture(size = 512) {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext("2d");
-
-  ctx.fillStyle = "#7ab87a";
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#8cd48c";
   ctx.fillRect(0, 0, size, size);
-
-  // Horizontal belly ridges
-  const ridges = 18;
-  for (let i = 0; i < ridges; i++) {
-    const y = (i / ridges) * size;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(size, y);
-    ctx.strokeStyle = `rgba(90, 160, 90, ${0.4 + Math.sin(i * 0.7) * 0.15})`;
-    ctx.lineWidth = size / ridges * 0.15;
-    ctx.stroke();
-
-    // Ridge highlight
-    ctx.beginPath();
-    ctx.moveTo(0, y + 2);
-    ctx.lineTo(size, y + 2);
-    ctx.strokeStyle = "rgba(140, 210, 140, 0.25)";
+  for (let i = 0; i < 16; i++) {
+    const y = (i / 16) * size;
+    ctx.strokeStyle = `rgba(100, 185, 100, ${0.35 + Math.sin(i * 0.8) * 0.1})`;
+    ctx.lineWidth = size / 16 * 0.12;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(size, y); ctx.stroke();
+    ctx.strokeStyle = "rgba(160, 230, 160, 0.2)";
     ctx.lineWidth = 1;
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, y + 2); ctx.lineTo(size, y + 2); ctx.stroke();
   }
-
-  const tex = new THREE.CanvasTexture(canvas);
+  const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
 
-function createWingMembraneTexture(size = 512) {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext("2d");
-
-  // Translucent green base
-  const grad = ctx.createLinearGradient(0, 0, size, size);
-  grad.addColorStop(0, "#3ca03c");
-  grad.addColorStop(0.5, "#2d8a2d");
-  grad.addColorStop(1, "#208020");
-  ctx.fillStyle = grad;
+function createWingTexture(size = 512) {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d");
+  const g = ctx.createLinearGradient(0, 0, size, size);
+  g.addColorStop(0, "#45b845");
+  g.addColorStop(0.5, "#38a038");
+  g.addColorStop(1, "#2d8a2d");
+  ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
-
-  // Veins
-  ctx.strokeStyle = "rgba(30, 80, 30, 0.5)";
-  ctx.lineWidth = 2;
-  for (let i = 0; i < 8; i++) {
+  // Subtle veins
+  ctx.strokeStyle = "rgba(30, 90, 30, 0.35)";
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 7; i++) {
     ctx.beginPath();
-    const sx = size * 0.05;
-    const sy = size * (0.1 + i * 0.1);
-    ctx.moveTo(sx, sy);
-    for (let j = 1; j <= 6; j++) {
-      ctx.lineTo(
-        sx + (size * 0.9 * j) / 6,
-        sy + Math.sin(j * 1.2 + i) * 15 + (j * 8)
-      );
+    const sy = size * (0.12 + i * 0.11);
+    ctx.moveTo(size * 0.05, sy);
+    for (let j = 1; j <= 5; j++) {
+      ctx.lineTo(size * 0.05 + (size * 0.88 * j) / 5, sy + Math.sin(j * 1.3 + i) * 12 + j * 6);
     }
     ctx.stroke();
   }
-
-  const tex = new THREE.CanvasTexture(canvas);
+  const tex = new THREE.CanvasTexture(c);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
 
-// ── Scene setup ──────────────────────────────────────────────
+// ── Scene ────────────────────────────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0d1b2a);
-scene.fog = new THREE.FogExp2(0x0d1b2a, 0.025);
+scene.background = new THREE.Color(0x0f1e30);
+scene.fog = new THREE.FogExp2(0x0f1e30, 0.02);
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(3.5, 2.5, 4.5);
+
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1;
+renderer.toneMappingExposure = 1.3;
 document.body.appendChild(renderer.domElement);
 
-// ── Lights ───────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0x303850, 1.8));
+// ── OrbitControls ────────────────────────────────────────────
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0.3, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.8;
+controls.maxPolarAngle = Math.PI * 0.75;
+controls.minPolarAngle = Math.PI * 0.15;
+controls.minDistance = 2.5;
+controls.maxDistance = 12;
+controls.update();
 
-const keyLight = new THREE.DirectionalLight(0xfff0dd, 2.5);
-keyLight.position.set(4, 8, 6);
-keyLight.castShadow = true;
-keyLight.shadow.mapSize.set(2048, 2048);
-keyLight.shadow.camera.near = 0.5;
-keyLight.shadow.camera.far = 30;
-keyLight.shadow.camera.left = -5;
-keyLight.shadow.camera.right = 5;
-keyLight.shadow.camera.top = 5;
-keyLight.shadow.camera.bottom = -5;
-keyLight.shadow.bias = -0.0005;
-scene.add(keyLight);
+// Stop auto-rotate on user interaction, resume after idle
+let userInteractTimeout;
+function onUserInteract() {
+  controls.autoRotate = false;
+  clearTimeout(userInteractTimeout);
+  userInteractTimeout = setTimeout(() => { controls.autoRotate = true; }, 5000);
+}
+renderer.domElement.addEventListener("pointerdown", onUserInteract);
+renderer.domElement.addEventListener("wheel", onUserInteract);
+renderer.domElement.addEventListener("touchstart", onUserInteract, { passive: true });
 
-const fillLight = new THREE.DirectionalLight(0x88aacc, 0.8);
-fillLight.position.set(-4, 3, -2);
-scene.add(fillLight);
+// ── Lights (brighter, warmer) ────────────────────────────────
+scene.add(new THREE.AmbientLight(0x556688, 2.5));
 
-const rimLight = new THREE.PointLight(0x6699ff, 1.5, 18);
-rimLight.position.set(-3, 3, -5);
-scene.add(rimLight);
+const key = new THREE.DirectionalLight(0xfffaf0, 3.0);
+key.position.set(4, 8, 6);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.near = 0.5;
+key.shadow.camera.far = 25;
+key.shadow.camera.left = -5;
+key.shadow.camera.right = 5;
+key.shadow.camera.top = 5;
+key.shadow.camera.bottom = -5;
+key.shadow.bias = -0.0004;
+scene.add(key);
 
-const underLight = new THREE.PointLight(0x335566, 0.6, 10);
-underLight.position.set(0, -1, 2);
-scene.add(underLight);
+const fill = new THREE.DirectionalLight(0x99bbdd, 1.2);
+fill.position.set(-5, 3, -3);
+scene.add(fill);
 
-// ── Generate textures ────────────────────────────────────────
+const rim = new THREE.PointLight(0x7799dd, 1.8, 18);
+rim.position.set(-3, 4, -4);
+scene.add(rim);
+
+const under = new THREE.PointLight(0x446666, 0.8, 10);
+under.position.set(0, -0.5, 3);
+scene.add(under);
+
+// ── Textures ─────────────────────────────────────────────────
 const scaleTex = createScaleTexture();
-const scaleBump = createScaleBumpMap();
+const scaleBmp = createScaleBump();
 const bellyTex = createBellyTexture();
-const wingTex = createWingMembraneTexture();
+const wingTex = createWingTexture();
 
-// ── Materials ────────────────────────────────────────────────
+// ── Materials (bright greens matching reference) ─────────────
 const bodyMat = new THREE.MeshStandardMaterial({
-  map: scaleTex,
-  bumpMap: scaleBump,
-  bumpScale: 0.35,
-  color: 0x2e8b2e,
-  roughness: 0.6,
-  metalness: 0.15,
+  map: scaleTex, bumpMap: scaleBmp, bumpScale: 0.3,
+  color: 0x3aaa3a, roughness: 0.55, metalness: 0.1,
 });
-
 const bellyMat = new THREE.MeshStandardMaterial({
-  map: bellyTex,
-  color: 0x8ecf8e,
-  roughness: 0.75,
-  metalness: 0.05,
+  map: bellyTex, color: 0x9ade9a, roughness: 0.7, metalness: 0.05,
 });
-
-const darkGreenMat = new THREE.MeshStandardMaterial({
-  map: scaleTex,
-  bumpMap: scaleBump,
-  bumpScale: 0.25,
-  color: 0x1a5e1a,
-  roughness: 0.55,
-  metalness: 0.2,
+const darkMat = new THREE.MeshStandardMaterial({
+  map: scaleTex, bumpMap: scaleBmp, bumpScale: 0.2,
+  color: 0x28822d, roughness: 0.5, metalness: 0.15,
 });
-
-const eyeWhiteMat = new THREE.MeshStandardMaterial({
-  color: 0xccdd44,
-  emissive: 0x99aa22,
-  emissiveIntensity: 0.3,
-  roughness: 0.2,
-  metalness: 0.1,
+const eyeOuterMat = new THREE.MeshStandardMaterial({
+  color: 0xdddd44, emissive: 0xaaaa22, emissiveIntensity: 0.35,
+  roughness: 0.15, metalness: 0.1,
 });
-
 const irisMat = new THREE.MeshStandardMaterial({
-  color: 0xddcc00,
-  emissive: 0xbbaa00,
-  emissiveIntensity: 0.5,
-  roughness: 0.15,
-  metalness: 0.2,
+  color: 0xeedd00, emissive: 0xccaa00, emissiveIntensity: 0.55,
+  roughness: 0.1, metalness: 0.15,
 });
-
-const pupilMat = new THREE.MeshStandardMaterial({
-  color: 0x050505,
-  roughness: 0.9,
-  metalness: 0.0,
+const pupilMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.9 });
+const glossMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.0,
+  roughness: 0.0, metalness: 0.0,
 });
-
-const eyeGlossMat = new THREE.MeshStandardMaterial({
-  color: 0xffffff,
-  emissive: 0xffffff,
-  emissiveIntensity: 1.0,
-  roughness: 0.0,
-  metalness: 0.0,
+const wingMemMat = new THREE.MeshStandardMaterial({
+  map: wingTex, color: 0x3ab03a, roughness: 0.45, metalness: 0.08,
+  side: THREE.DoubleSide, transparent: true, opacity: 0.78,
 });
+const hornMat = new THREE.MeshStandardMaterial({ color: 0xd8ccb0, roughness: 0.35, metalness: 0.35 });
+const clawMat = new THREE.MeshStandardMaterial({ color: 0xccbfa0, roughness: 0.3, metalness: 0.4 });
+const spineMat = new THREE.MeshStandardMaterial({ color: 0x2d902d, roughness: 0.45, metalness: 0.15 });
+const nostrilMat = new THREE.MeshStandardMaterial({ color: 0x0e350e, roughness: 0.9 });
 
-const wingMembraneMat = new THREE.MeshStandardMaterial({
-  map: wingTex,
-  color: 0x30a030,
-  roughness: 0.5,
-  metalness: 0.1,
-  side: THREE.DoubleSide,
-  transparent: true,
-  opacity: 0.82,
-});
-
-const hornMat = new THREE.MeshStandardMaterial({
-  color: 0xd4c5a9,
-  roughness: 0.35,
-  metalness: 0.4,
-});
-
-const clawMat = new THREE.MeshStandardMaterial({
-  color: 0xc8b890,
-  roughness: 0.3,
-  metalness: 0.5,
-});
-
-const spineMat = new THREE.MeshStandardMaterial({
-  color: 0x1a6e1a,
-  roughness: 0.5,
-  metalness: 0.2,
-});
-
-const nostrilMat = new THREE.MeshStandardMaterial({
-  color: 0x0a2a0a,
-  roughness: 0.9,
-});
-
-// ── Helpers ──────────────────────────────────────────────────
-function deformSphere(geo, noiseFn) {
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    const z = pos.getZ(i);
-    const r = Math.sqrt(x * x + y * y + z * z);
-    const theta = Math.atan2(z, x);
-    const phi = Math.acos(y / (r || 1));
-    const d = noiseFn(theta, phi, r);
-    pos.setXYZ(i, x + x / r * d, y + y / r * d, z + z / r * d);
-  }
-  pos.needsUpdate = true;
-  geo.computeVertexNormals();
+// ── Helper ───────────────────────────────────────────────────
+function noise2(a, b) {
+  return (Math.sin(a * 5.7 + b * 3.1) * 0.5 + Math.sin(a * 11.3 - b * 7.9) * 0.25 + Math.sin(b * 13.7 + a * 2.3) * 0.15) * 0.012;
 }
 
-function simpleNoise(t1, t2) {
-  return (Math.sin(t1 * 5.7 + t2 * 3.1) * 0.5 +
-          Math.sin(t1 * 11.3 - t2 * 7.9) * 0.25 +
-          Math.sin(t2 * 13.7 + t1 * 2.3) * 0.15) * 0.015;
-}
-
-// ══════════════════════════════════════════════════════════════
-//  BUILD THE DRAGON
 // ══════════════════════════════════════════════════════════════
 const dragon = new THREE.Group();
 
-// ── Body ─────────────────────────────────────────────────────
-// Main torso: wide, low, slightly elongated — like a toad
+// ── Body (round, plump) ──────────────────────────────────────
 const bodyGeo = new THREE.SphereGeometry(1, 48, 48);
-// Flatten and widen
-const bPos = bodyGeo.attributes.position;
-for (let i = 0; i < bPos.count; i++) {
-  let x = bPos.getX(i);
-  let y = bPos.getY(i);
-  let z = bPos.getZ(i);
-  // Widen sides, flatten top/bottom, elongate front-back
-  x *= 1.15;
-  y *= 0.72;
-  z *= 1.3;
-  // Puff out the belly (lower hemisphere wider)
-  if (y < 0) {
-    const expand = 1 + (-y) * 0.25;
-    x *= expand;
-    z *= expand;
-  }
-  // Add organic undulation
-  const d = simpleNoise(Math.atan2(z, x), Math.acos(y / (Math.sqrt(x*x+y*y+z*z) || 1)));
-  const r = Math.sqrt(x*x + y*y + z*z) || 1;
-  x += (x / r) * d;
-  y += (y / r) * d;
-  z += (z / r) * d;
-  bPos.setXYZ(i, x, y, z);
+const bp = bodyGeo.attributes.position;
+for (let i = 0; i < bp.count; i++) {
+  let x = bp.getX(i), y = bp.getY(i), z = bp.getZ(i);
+  x *= 1.12; y *= 0.75; z *= 1.25;
+  if (y < 0) { const e = 1 + (-y) * 0.2; x *= e; z *= e; }
+  const d = noise2(Math.atan2(z, x), Math.acos(y / (Math.sqrt(x*x+y*y+z*z) || 1)));
+  const r = Math.sqrt(x*x+y*y+z*z) || 1;
+  x += x/r*d; y += y/r*d; z += z/r*d;
+  bp.setXYZ(i, x, y, z);
 }
 bodyGeo.computeVertexNormals();
 const body = new THREE.Mesh(bodyGeo, bodyMat);
-body.castShadow = true;
-body.receiveShadow = true;
+body.castShadow = true; body.receiveShadow = true;
 dragon.add(body);
 
-// Belly plate
-const bellyGeo = new THREE.SphereGeometry(0.78, 40, 40);
-const bellyPos = bellyGeo.attributes.position;
-for (let i = 0; i < bellyPos.count; i++) {
-  let x = bellyPos.getX(i);
-  let y = bellyPos.getY(i);
-  let z = bellyPos.getZ(i);
-  x *= 0.85;
-  y *= 0.55;
-  z *= 1.15;
-  bellyPos.setXYZ(i, x, y, z);
+// Belly
+const bellyGeo = new THREE.SphereGeometry(0.76, 40, 40);
+const blp = bellyGeo.attributes.position;
+for (let i = 0; i < blp.count; i++) {
+  let x = blp.getX(i), y = blp.getY(i), z = blp.getZ(i);
+  x *= 0.82; y *= 0.52; z *= 1.1;
+  blp.setXYZ(i, x, y, z);
 }
 bellyGeo.computeVertexNormals();
 const belly = new THREE.Mesh(bellyGeo, bellyMat);
-belly.position.set(0, -0.28, 0.08);
+belly.position.set(0, -0.26, 0.06);
 dragon.add(belly);
 
 // ── Neck ─────────────────────────────────────────────────────
-const neckGeo = new THREE.CylinderGeometry(0.35, 0.52, 0.65, 24, 8);
-const nPos = neckGeo.attributes.position;
-for (let i = 0; i < nPos.count; i++) {
-  let x = nPos.getX(i);
-  let y = nPos.getY(i);
-  let z = nPos.getZ(i);
-  // Taper toward top
-  const t = (y + 0.325) / 0.65;
-  const bulge = 1 + Math.sin(t * Math.PI) * 0.12;
-  x *= bulge;
-  z *= bulge * 1.1;
-  nPos.setXYZ(i, x, y, z);
+const neckGeo = new THREE.CylinderGeometry(0.34, 0.48, 0.6, 24, 6);
+const np = neckGeo.attributes.position;
+for (let i = 0; i < np.count; i++) {
+  let x = np.getX(i), y = np.getY(i), z = np.getZ(i);
+  const t = (y + 0.3) / 0.6;
+  const b = 1 + Math.sin(t * Math.PI) * 0.1;
+  x *= b; z *= b * 1.08;
+  np.setXYZ(i, x, y, z);
 }
 neckGeo.computeVertexNormals();
 const neck = new THREE.Mesh(neckGeo, bodyMat);
-neck.position.set(0, 0.3, 1.0);
-neck.rotation.x = 0.55;
+neck.position.set(0, 0.28, 0.95);
+neck.rotation.x = 0.5;
 neck.castShadow = true;
 dragon.add(neck);
 
 // ── Head ─────────────────────────────────────────────────────
 const headGroup = new THREE.Group();
-headGroup.position.set(0, 0.68, 1.25);
+headGroup.position.set(0, 0.65, 1.2);
 
-// Cranium — big, round
-const craniGeo = new THREE.SphereGeometry(0.62, 48, 48);
-const cPos = craniGeo.attributes.position;
-for (let i = 0; i < cPos.count; i++) {
-  let x = cPos.getX(i);
-  let y = cPos.getY(i);
-  let z = cPos.getZ(i);
-  x *= 1.05;
-  y *= 0.9;
-  z *= 1.0;
-  // Flatten bottom of head
-  if (y < -0.1) y *= 0.75;
-  // Broaden cheeks
-  if (y < 0.15 && y > -0.25) {
-    x *= 1.1 + (0.15 - Math.abs(y)) * 0.3;
-  }
-  const d = simpleNoise(Math.atan2(z, x) * 2, y * 4) * 0.6;
+// Cranium (big, round like ref)
+const cranGeo = new THREE.SphereGeometry(0.6, 48, 48);
+const cp = cranGeo.attributes.position;
+for (let i = 0; i < cp.count; i++) {
+  let x = cp.getX(i), y = cp.getY(i), z = cp.getZ(i);
+  x *= 1.08; y *= 0.92; z *= 1.0;
+  if (y < -0.08) y *= 0.78;
+  if (y < 0.15 && y > -0.22) x *= 1.08 + (0.15 - Math.abs(y)) * 0.25;
+  const d = noise2(Math.atan2(z, x) * 2, y * 4) * 0.5;
   const r = Math.sqrt(x*x+y*y+z*z) || 1;
-  x += (x/r) * d; y += (y/r) * d; z += (z/r) * d;
-  cPos.setXYZ(i, x, y, z);
+  x += x/r*d; y += y/r*d; z += z/r*d;
+  cp.setXYZ(i, x, y, z);
 }
-craniGeo.computeVertexNormals();
-const cranium = new THREE.Mesh(craniGeo, bodyMat);
+cranGeo.computeVertexNormals();
+const cranium = new THREE.Mesh(cranGeo, bodyMat);
 cranium.castShadow = true;
 headGroup.add(cranium);
 
-// Snout — wide, flat, like a bulldog
-const snoutGeo = new THREE.SphereGeometry(0.38, 36, 36);
-const sPos = snoutGeo.attributes.position;
-for (let i = 0; i < sPos.count; i++) {
-  let x = sPos.getX(i);
-  let y = sPos.getY(i);
-  let z = sPos.getZ(i);
-  x *= 0.85;
-  y *= 0.6;
-  z *= 1.15;
-  // Flatten the front
-  if (z > 0.1) y *= 0.85;
-  sPos.setXYZ(i, x, y, z);
+// Snout
+const snoutGeo = new THREE.SphereGeometry(0.36, 36, 36);
+const sp = snoutGeo.attributes.position;
+for (let i = 0; i < sp.count; i++) {
+  let x = sp.getX(i), y = sp.getY(i), z = sp.getZ(i);
+  x *= 0.88; y *= 0.58; z *= 1.12;
+  if (z > 0.1) y *= 0.88;
+  sp.setXYZ(i, x, y, z);
 }
 snoutGeo.computeVertexNormals();
 const snout = new THREE.Mesh(snoutGeo, bodyMat);
-snout.position.set(0, -0.12, 0.48);
+snout.position.set(0, -0.12, 0.46);
 snout.castShadow = true;
 headGroup.add(snout);
 
 // Brow ridges
-for (const side of [-1, 1]) {
-  const browGeo = new THREE.SphereGeometry(0.18, 20, 20);
-  browGeo.scale(1.3, 0.5, 0.8);
-  const brow = new THREE.Mesh(browGeo, darkGreenMat);
-  brow.position.set(side * 0.35, 0.22, 0.28);
+for (const s of [-1, 1]) {
+  const bg = new THREE.SphereGeometry(0.17, 20, 20);
+  bg.scale(1.25, 0.5, 0.8);
+  const brow = new THREE.Mesh(bg, darkMat);
+  brow.position.set(s * 0.34, 0.22, 0.26);
   headGroup.add(brow);
 }
 
-// ── Eyes (large, expressive like in ref) ─────────────────────
-for (const side of [-1, 1]) {
-  const eyeGroup = new THREE.Group();
-  eyeGroup.position.set(side * 0.38, 0.12, 0.32);
-  eyeGroup.rotation.y = side * 0.3;
+// ── Eyes (big, prominent) ────────────────────────────────────
+for (const s of [-1, 1]) {
+  const eg = new THREE.Group();
+  eg.position.set(s * 0.37, 0.12, 0.3);
+  eg.rotation.y = s * 0.3;
 
-  // Eye white / outer sphere
-  const eyeOuterGeo = new THREE.SphereGeometry(0.16, 24, 24);
-  eyeOuterGeo.scale(1, 1, 0.7);
-  const eyeOuter = new THREE.Mesh(eyeOuterGeo, eyeWhiteMat);
-  eyeGroup.add(eyeOuter);
+  const outerG = new THREE.SphereGeometry(0.16, 24, 24);
+  outerG.scale(1, 1, 0.65);
+  eg.add(new THREE.Mesh(outerG, eyeOuterMat));
 
-  // Iris
-  const irisGeo = new THREE.SphereGeometry(0.12, 20, 20);
-  irisGeo.scale(1, 1, 0.5);
-  const iris = new THREE.Mesh(irisGeo, irisMat);
-  iris.position.z = 0.06;
-  eyeGroup.add(iris);
+  const irisG = new THREE.SphereGeometry(0.12, 20, 20);
+  irisG.scale(1, 1, 0.45);
+  const iris = new THREE.Mesh(irisG, irisMat);
+  iris.position.z = 0.055;
+  eg.add(iris);
 
-  // Pupil (vertical slit)
-  const pupilGeo = new THREE.SphereGeometry(0.065, 16, 16);
-  pupilGeo.scale(0.5, 1.1, 0.4);
-  const pupil = new THREE.Mesh(pupilGeo, pupilMat);
-  pupil.position.z = 0.1;
-  eyeGroup.add(pupil);
+  const pupG = new THREE.SphereGeometry(0.06, 16, 16);
+  pupG.scale(0.45, 1.05, 0.35);
+  const pup = new THREE.Mesh(pupG, pupilMat);
+  pup.position.z = 0.09;
+  eg.add(pup);
 
-  // Gloss highlight
-  const glossGeo = new THREE.SphereGeometry(0.035, 10, 10);
-  const gloss = new THREE.Mesh(glossGeo, eyeGlossMat);
-  gloss.position.set(side * 0.04, 0.05, 0.11);
-  eyeGroup.add(gloss);
+  const glG = new THREE.SphereGeometry(0.032, 10, 10);
+  const gls = new THREE.Mesh(glG, glossMat);
+  gls.position.set(s * 0.04, 0.045, 0.1);
+  eg.add(gls);
 
-  headGroup.add(eyeGroup);
+  headGroup.add(eg);
 }
 
 // Nostrils
-for (const side of [-1, 1]) {
-  const nGeo = new THREE.SphereGeometry(0.05, 12, 12);
-  nGeo.scale(1.2, 0.7, 1);
-  const nostril = new THREE.Mesh(nGeo, nostrilMat);
-  nostril.position.set(side * 0.14, -0.1, 0.8);
-  headGroup.add(nostril);
+for (const s of [-1, 1]) {
+  const ng = new THREE.SphereGeometry(0.045, 12, 12);
+  ng.scale(1.1, 0.65, 1);
+  const nos = new THREE.Mesh(ng, nostrilMat);
+  nos.position.set(s * 0.13, -0.1, 0.78);
+  headGroup.add(nos);
 }
 
-// Mouth line (subtle)
-const mouthGeo = new THREE.TorusGeometry(0.28, 0.015, 8, 24, Math.PI);
-const mouthMat = new THREE.MeshStandardMaterial({ color: 0x0a2a0a, roughness: 0.9 });
-const mouth = new THREE.Mesh(mouthGeo, mouthMat);
-mouth.position.set(0, -0.2, 0.52);
-mouth.rotation.x = -0.2;
+// Mouth
+const mouthGeo = new THREE.TorusGeometry(0.26, 0.012, 8, 24, Math.PI);
+const mouth = new THREE.Mesh(mouthGeo, new THREE.MeshStandardMaterial({ color: 0x0e350e, roughness: 0.9 }));
+mouth.position.set(0, -0.19, 0.5);
+mouth.rotation.x = -0.15;
 mouth.rotation.z = Math.PI;
 headGroup.add(mouth);
 
-// ── Head horns / spikes (multiple small ones like ref) ───────
-const headSpinePositions = [
-  { x: -0.25, y: 0.45, z: -0.15, rx: -0.5, rz: -0.3, h: 0.28 },
-  { x: 0.25, y: 0.45, z: -0.15, rx: -0.5, rz: 0.3, h: 0.28 },
-  { x: -0.4, y: 0.32, z: -0.1, rx: -0.3, rz: -0.5, h: 0.22 },
-  { x: 0.4, y: 0.32, z: -0.1, rx: -0.3, rz: 0.5, h: 0.22 },
-  { x: -0.48, y: 0.18, z: -0.12, rx: -0.2, rz: -0.7, h: 0.18 },
-  { x: 0.48, y: 0.18, z: -0.12, rx: -0.2, rz: 0.7, h: 0.18 },
-  { x: 0, y: 0.52, z: -0.2, rx: -0.6, rz: 0, h: 0.2 },
+// ── Head spines/horns ────────────────────────────────────────
+const headSpines = [
+  { x: -0.24, y: 0.44, z: -0.14, rx: -0.5, rz: -0.3, h: 0.26 },
+  { x: 0.24, y: 0.44, z: -0.14, rx: -0.5, rz: 0.3, h: 0.26 },
+  { x: -0.38, y: 0.31, z: -0.1, rx: -0.3, rz: -0.5, h: 0.2 },
+  { x: 0.38, y: 0.31, z: -0.1, rx: -0.3, rz: 0.5, h: 0.2 },
+  { x: -0.46, y: 0.17, z: -0.12, rx: -0.2, rz: -0.7, h: 0.16 },
+  { x: 0.46, y: 0.17, z: -0.12, rx: -0.2, rz: 0.7, h: 0.16 },
+  { x: 0, y: 0.5, z: -0.18, rx: -0.55, rz: 0, h: 0.18 },
 ];
-
-for (const sp of headSpinePositions) {
-  const hGeo = new THREE.ConeGeometry(0.04, sp.h, 8);
-  const horn = new THREE.Mesh(hGeo, hornMat);
-  horn.position.set(sp.x, sp.y, sp.z);
-  horn.rotation.set(sp.rx, 0, sp.rz);
+for (const h of headSpines) {
+  const hg = new THREE.ConeGeometry(0.038, h.h, 8);
+  const horn = new THREE.Mesh(hg, hornMat);
+  horn.position.set(h.x, h.y, h.z);
+  horn.rotation.set(h.rx, 0, h.rz);
   horn.castShadow = true;
   headGroup.add(horn);
 }
 
 dragon.add(headGroup);
 
-// ── Back spines (row down the back) ──────────────────────────
-const spineCount = 14;
-for (let i = 0; i < spineCount; i++) {
-  const t = i / (spineCount - 1);
-  // Path from upper back to tail base
-  const z = THREE.MathUtils.lerp(0.7, -1.3, t);
-  const y = 0.72 - t * 0.25 - Math.sin(t * Math.PI) * 0.05;
-  const heightMult = 1 - Math.abs(t - 0.3) * 1.1;
-  const h = THREE.MathUtils.clamp(0.12 + heightMult * 0.2, 0.08, 0.35);
-  const r = 0.025 + heightMult * 0.02;
-
-  const spGeo = new THREE.ConeGeometry(r, h, 6);
-  const spine = new THREE.Mesh(spGeo, spineMat);
+// ── Back spines ──────────────────────────────────────────────
+for (let i = 0; i < 13; i++) {
+  const t = i / 12;
+  const z = THREE.MathUtils.lerp(0.65, -1.25, t);
+  const y = 0.72 - t * 0.22 - Math.sin(t * Math.PI) * 0.04;
+  const hm = 1 - Math.abs(t - 0.3) * 1.1;
+  const h = THREE.MathUtils.clamp(0.1 + hm * 0.18, 0.06, 0.3);
+  const sg = new THREE.ConeGeometry(0.022 + hm * 0.018, h, 6);
+  const spine = new THREE.Mesh(sg, spineMat);
   spine.position.set(0, y, z);
-  spine.rotation.x = THREE.MathUtils.lerp(-0.15, -0.35, t);
+  spine.rotation.x = THREE.MathUtils.lerp(-0.12, -0.32, t);
   spine.castShadow = true;
   dragon.add(spine);
 }
 
 // ── Tail ─────────────────────────────────────────────────────
 const tailGroup = new THREE.Group();
-const tailSegs = 12;
-const tailPath = [];
-let tx = 0, ty = -0.1, tz = -1.2;
-
+const tailSegs = 11;
+let tx = 0, ty = -0.08, tz = -1.15;
 for (let i = 0; i < tailSegs; i++) {
   const t = i / tailSegs;
-  const radius = THREE.MathUtils.lerp(0.28, 0.05, t * t);
-  const segGeo = new THREE.SphereGeometry(radius, 16, 16);
-
-  // Make segments slightly elliptical
-  const sP = segGeo.attributes.position;
-  for (let j = 0; j < sP.count; j++) {
-    let sx = sP.getX(j), sy = sP.getY(j), sz = sP.getZ(j);
-    sx *= 1.0;
-    sy *= 0.85;
-    sz *= 1.2;
-    sP.setXYZ(j, sx, sy, sz);
-  }
-  segGeo.computeVertexNormals();
-
-  const seg = new THREE.Mesh(segGeo, bodyMat);
+  const r = THREE.MathUtils.lerp(0.26, 0.04, t * t);
+  const sg = new THREE.SphereGeometry(r, 16, 16);
+  sg.scale(1, 0.88, 1.18);
+  const seg = new THREE.Mesh(sg, bodyMat);
   seg.castShadow = true;
-
-  tx += Math.sin(t * 3.0) * 0.12;
-  ty -= t * 0.06;
-  tz -= 0.32 + t * 0.08;
-
+  tx += Math.sin(t * 2.8) * 0.1;
+  ty -= t * 0.055;
+  tz -= 0.3 + t * 0.07;
   seg.position.set(tx, ty, tz);
-  tailPath.push(seg.position.clone());
   tailGroup.add(seg);
 
-  // Tail spines
-  if (i < tailSegs - 2 && i > 1) {
-    const tsGeo = new THREE.ConeGeometry(0.02, 0.1 * (1 - t), 5);
-    const tSpine = new THREE.Mesh(tsGeo, spineMat);
-    tSpine.position.set(tx, ty + radius + 0.02, tz);
-    tSpine.rotation.x = -0.3;
-    tailGroup.add(tSpine);
+  if (i > 1 && i < tailSegs - 2) {
+    const tsg = new THREE.ConeGeometry(0.018, 0.09 * (1 - t), 5);
+    const ts = new THREE.Mesh(tsg, spineMat);
+    ts.position.set(tx, ty + r + 0.015, tz);
+    ts.rotation.x = -0.25;
+    tailGroup.add(ts);
   }
 }
-
-// Tail tip spike
-const tipGeo = new THREE.ConeGeometry(0.06, 0.2, 6);
-const tip = new THREE.Mesh(tipGeo, spineMat);
-const lastTP = tailPath[tailPath.length - 1];
-tip.position.set(lastTP.x, lastTP.y, lastTP.z - 0.12);
-tip.rotation.x = -Math.PI * 0.45;
+// Tail tip
+const tipG = new THREE.ConeGeometry(0.05, 0.18, 6);
+const tip = new THREE.Mesh(tipG, spineMat);
+tip.position.set(tx, ty, tz - 0.1);
+tip.rotation.x = -Math.PI * 0.42;
 tailGroup.add(tip);
-
 dragon.add(tailGroup);
 
-// ── Wings ────────────────────────────────────────────────────
+// ── Wings (clean membrane, no exposed bones) ─────────────────
 function createWing(side) {
   const wing = new THREE.Group();
-
-  // Main arm bone
-  const armGeo = new THREE.CylinderGeometry(0.06, 0.04, 1.8, 12);
-  const arm = new THREE.Mesh(armGeo, darkGreenMat);
-  arm.position.set(side * 0.9, 0.0, 0);
-  arm.rotation.z = side * -1.0;
-  arm.castShadow = true;
-  wing.add(arm);
-
-  // ── Membrane shape (large, bat-like) ───────────────────────
-  const shape = new THREE.Shape();
   const s = side;
+
+  // Large bat-like membrane shape
+  const shape = new THREE.Shape();
   shape.moveTo(0, 0);
-  // Top edge sweeping up and out
-  shape.bezierCurveTo(s * 0.4, 0.5, s * 1.2, 1.4, s * 2.0, 1.2);
-  // Outer scalloped edge
-  shape.bezierCurveTo(s * 2.3, 0.9, s * 2.4, 0.5, s * 2.2, 0.2);
-  shape.bezierCurveTo(s * 2.3, -0.1, s * 2.1, -0.4, s * 1.9, -0.5);
-  shape.bezierCurveTo(s * 1.7, -0.3, s * 1.5, -0.55, s * 1.3, -0.4);
-  // Bottom edge back to body
-  shape.bezierCurveTo(s * 0.9, -0.45, s * 0.4, -0.35, 0, -0.3);
+  shape.bezierCurveTo(s * 0.3, 0.4, s * 0.9, 1.3, s * 1.8, 1.15);
+  shape.bezierCurveTo(s * 2.1, 0.95, s * 2.25, 0.55, s * 2.15, 0.25);
+  shape.bezierCurveTo(s * 2.2, 0.0, s * 2.05, -0.3, s * 1.85, -0.42);
+  shape.bezierCurveTo(s * 1.65, -0.28, s * 1.45, -0.48, s * 1.2, -0.38);
+  shape.bezierCurveTo(s * 0.85, -0.4, s * 0.4, -0.32, 0, -0.25);
   shape.lineTo(0, 0);
 
-  const memGeo = new THREE.ShapeGeometry(shape, 24);
-  const membrane = new THREE.Mesh(memGeo, wingMembraneMat);
+  const memGeo = new THREE.ShapeGeometry(shape, 28);
+  const membrane = new THREE.Mesh(memGeo, wingMemMat);
   membrane.castShadow = true;
   wing.add(membrane);
 
-  // Finger bones (3 main + 1 short thumb)
-  const fingerData = [
-    { angle: 0.45, len: 1.6 },
-    { angle: 0.75, len: 1.9 },
-    { angle: 1.05, len: 2.1 },
+  // Thin leading-edge bone (integrated, same color as wing)
+  const edgeGeo = new THREE.CylinderGeometry(0.022, 0.012, 2.0, 8);
+  const edgeMat = new THREE.MeshStandardMaterial({
+    color: 0x2d8a2d, roughness: 0.5, metalness: 0.1,
+  });
+  const edge = new THREE.Mesh(edgeGeo, edgeMat);
+  edge.position.set(s * 0.95, 0.5, 0.005);
+  edge.rotation.z = s * -1.05;
+  wing.add(edge);
+
+  // Subtle finger ridges (very thin, blending with membrane)
+  const ridgeMat = new THREE.MeshStandardMaterial({
+    color: 0x2f8f2f, roughness: 0.5, metalness: 0.08, transparent: true, opacity: 0.6,
+  });
+  const ridges = [
+    { a: 0.5,  l: 1.5 },
+    { a: 0.78, l: 1.8 },
+    { a: 1.05, l: 1.95 },
   ];
-  for (const f of fingerData) {
-    const a = s * f.angle;
-    const fGeo = new THREE.CylinderGeometry(0.025, 0.015, f.len, 8);
-    const finger = new THREE.Mesh(fGeo, darkGreenMat);
-    finger.position.set(
-      (s * Math.cos(a) * f.len) / 2,
-      (Math.sin(a) * f.len) / 2,
-      0.01
-    );
-    finger.rotation.z = Math.PI / 2 - a;
-    finger.castShadow = true;
-    wing.add(finger);
+  for (const r of ridges) {
+    const a = s * r.a;
+    const rg = new THREE.CylinderGeometry(0.008, 0.005, r.l, 6);
+    const ridge = new THREE.Mesh(rg, ridgeMat);
+    ridge.position.set((s * Math.cos(a) * r.l) / 2, (Math.sin(a) * r.l) / 2, 0.005);
+    ridge.rotation.z = Math.PI / 2 - a;
+    wing.add(ridge);
   }
 
-  // Wing claw at the wrist
-  const wcGeo = new THREE.ConeGeometry(0.035, 0.18, 6);
-  const wClaw = new THREE.Mesh(wcGeo, clawMat);
-  wClaw.position.set(s * 0.3, 0.55, 0.02);
-  wClaw.rotation.z = s * -0.6;
-  wing.add(wClaw);
+  // Tiny wrist claw
+  const wcg = new THREE.ConeGeometry(0.028, 0.14, 6);
+  const wc = new THREE.Mesh(wcg, clawMat);
+  wc.position.set(s * 0.25, 0.48, 0.01);
+  wc.rotation.z = s * -0.55;
+  wing.add(wc);
 
-  wing.position.set(0, 0.55, -0.05);
+  wing.position.set(0, 0.52, -0.08);
   return wing;
 }
 
@@ -667,158 +514,113 @@ const leftWing = createWing(-1);
 const rightWing = createWing(1);
 dragon.add(leftWing, rightWing);
 
-// ── Legs (chunky, splayed outward like ref) ──────────────────
-function createLeg(x, z, isFront, splayAngle) {
+// ── Legs ─────────────────────────────────────────────────────
+function createLeg(x, z, isFront, splay) {
   const leg = new THREE.Group();
 
-  // Upper leg — thick
-  const upGeo = new THREE.CylinderGeometry(0.18, 0.15, 0.5, 16, 4);
-  const upPos = upGeo.attributes.position;
-  for (let i = 0; i < upPos.count; i++) {
-    let lx = upPos.getX(i), ly = upPos.getY(i), lz = upPos.getZ(i);
-    const bulge = 1 + Math.sin(((ly + 0.25) / 0.5) * Math.PI) * 0.15;
-    lx *= bulge;
-    lz *= bulge;
-    upPos.setXYZ(i, lx, ly, lz);
+  const ug = new THREE.CylinderGeometry(0.17, 0.14, 0.48, 16, 4);
+  const up = ug.attributes.position;
+  for (let i = 0; i < up.count; i++) {
+    let lx = up.getX(i), ly = up.getY(i), lz = up.getZ(i);
+    const b = 1 + Math.sin(((ly + 0.24) / 0.48) * Math.PI) * 0.12;
+    lx *= b; lz *= b;
+    up.setXYZ(i, lx, ly, lz);
   }
-  upGeo.computeVertexNormals();
-  const upper = new THREE.Mesh(upGeo, bodyMat);
+  ug.computeVertexNormals();
+  const upper = new THREE.Mesh(ug, bodyMat);
   upper.castShadow = true;
   leg.add(upper);
 
-  // Lower leg
-  const loGeo = new THREE.CylinderGeometry(0.13, 0.1, 0.4, 14);
-  const lower = new THREE.Mesh(loGeo, bodyMat);
-  lower.position.y = -0.4;
+  const lg = new THREE.CylinderGeometry(0.12, 0.09, 0.38, 14);
+  const lower = new THREE.Mesh(lg, bodyMat);
+  lower.position.y = -0.38;
   lower.castShadow = true;
   leg.add(lower);
 
-  // Foot pad
-  const footGeo = new THREE.SphereGeometry(0.14, 16, 16);
-  footGeo.scale(1.4, 0.5, 1.6);
-  const foot = new THREE.Mesh(footGeo, bodyMat);
-  foot.position.set(0, -0.58, 0.06);
+  const fg = new THREE.SphereGeometry(0.13, 16, 16);
+  fg.scale(1.35, 0.5, 1.5);
+  const foot = new THREE.Mesh(fg, bodyMat);
+  foot.position.set(0, -0.55, 0.05);
   foot.castShadow = true;
   leg.add(foot);
 
-  // Toes (3 front + 1 back if rear leg)
   const toeCount = isFront ? 3 : 4;
   for (let t = 0; t < toeCount; t++) {
-    const toeGeo = new THREE.SphereGeometry(0.045, 10, 10);
-    toeGeo.scale(0.8, 0.5, 1.4);
-    const toe = new THREE.Mesh(toeGeo, bodyMat);
-    if (t < 3) {
-      const spread = (t - 1) * 0.1;
-      toe.position.set(spread, -0.6, 0.18);
-    } else {
-      toe.position.set(0, -0.6, -0.08);
-    }
+    const tg = new THREE.SphereGeometry(0.04, 10, 10);
+    tg.scale(0.8, 0.5, 1.3);
+    const toe = new THREE.Mesh(tg, bodyMat);
+    if (t < 3) toe.position.set((t - 1) * 0.09, -0.57, 0.16);
+    else toe.position.set(0, -0.57, -0.07);
     leg.add(toe);
 
-    // Claw on each toe
-    const cGeo = new THREE.ConeGeometry(0.02, 0.1, 5);
-    const claw = new THREE.Mesh(cGeo, clawMat);
-    if (t < 3) {
-      claw.position.set((t - 1) * 0.1, -0.62, 0.25);
-      claw.rotation.x = 0.6;
-    } else {
-      claw.position.set(0, -0.62, -0.14);
-      claw.rotation.x = -0.6;
-    }
+    const cg = new THREE.ConeGeometry(0.018, 0.09, 5);
+    const claw = new THREE.Mesh(cg, clawMat);
+    if (t < 3) { claw.position.set((t - 1) * 0.09, -0.59, 0.23); claw.rotation.x = 0.55; }
+    else { claw.position.set(0, -0.59, -0.13); claw.rotation.x = -0.55; }
     leg.add(claw);
   }
 
-  leg.position.set(x, -0.5, z);
-  leg.rotation.x = isFront ? 0.2 : -0.2;
-  leg.rotation.z = splayAngle;
+  leg.position.set(x, -0.48, z);
+  leg.rotation.x = isFront ? 0.18 : -0.18;
+  leg.rotation.z = splay;
   return leg;
 }
 
-const legFL = createLeg(-0.7, 0.7, true, 0.2);
-const legFR = createLeg(0.7, 0.7, true, -0.2);
-const legBL = createLeg(-0.65, -0.75, false, 0.15);
-const legBR = createLeg(0.65, -0.75, false, -0.15);
+const legFL = createLeg(-0.68, 0.68, true, 0.18);
+const legFR = createLeg(0.68, 0.68, true, -0.18);
+const legBL = createLeg(-0.62, -0.72, false, 0.14);
+const legBR = createLeg(0.62, -0.72, false, -0.14);
 dragon.add(legFL, legFR, legBL, legBR);
 
-// ── Position dragon ──────────────────────────────────────────
+// ── Place dragon ─────────────────────────────────────────────
 dragon.position.y = 0.2;
 scene.add(dragon);
 
 // ── Ground ───────────────────────────────────────────────────
-const groundGeo = new THREE.PlaneGeometry(30, 30, 64, 64);
-// Add slight undulation to ground
-const gPos = groundGeo.attributes.position;
-for (let i = 0; i < gPos.count; i++) {
-  const x = gPos.getX(i);
-  const y = gPos.getY(i);
-  gPos.setZ(i, (Math.sin(x * 0.5) * Math.cos(y * 0.3) + Math.sin(x * 1.2 + y * 0.8) * 0.3) * 0.15);
+const gGeo = new THREE.PlaneGeometry(30, 30, 48, 48);
+const gp = gGeo.attributes.position;
+for (let i = 0; i < gp.count; i++) {
+  const x = gp.getX(i), y = gp.getY(i);
+  gp.setZ(i, (Math.sin(x * 0.5) * Math.cos(y * 0.3) + Math.sin(x * 1.2 + y * 0.8) * 0.3) * 0.12);
 }
-groundGeo.computeVertexNormals();
-
-const groundMat = new THREE.MeshStandardMaterial({
-  color: 0x1e2a3a,
-  roughness: 0.85,
-  metalness: 0.15,
-});
-const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.rotation.x = -Math.PI / 2;
-ground.position.y = -1.1;
-ground.receiveShadow = true;
-scene.add(ground);
+gGeo.computeVertexNormals();
+const grd = new THREE.Mesh(gGeo, new THREE.MeshStandardMaterial({ color: 0x1a2a3c, roughness: 0.85, metalness: 0.12 }));
+grd.rotation.x = -Math.PI / 2;
+grd.position.y = -1.05;
+grd.receiveShadow = true;
+scene.add(grd);
 
 // ── Stars ────────────────────────────────────────────────────
-const starCount = 300;
-const starPositions = new Float32Array(starCount * 3);
-const starSizes = new Float32Array(starCount);
-for (let i = 0; i < starCount; i++) {
-  const theta = Math.random() * Math.PI * 2;
-  const phi = Math.random() * Math.PI * 0.45; // upper hemisphere
-  const r = 25 + Math.random() * 15;
-  starPositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-  starPositions[i * 3 + 1] = r * Math.cos(phi) + 3;
-  starPositions[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
-  starSizes[i] = Math.random() * 0.08 + 0.02;
+const stC = 280;
+const stP = new Float32Array(stC * 3);
+for (let i = 0; i < stC; i++) {
+  const th = Math.random() * Math.PI * 2;
+  const ph = Math.random() * Math.PI * 0.4;
+  const r = 22 + Math.random() * 16;
+  stP[i*3] = r * Math.sin(ph) * Math.cos(th);
+  stP[i*3+1] = r * Math.cos(ph) + 4;
+  stP[i*3+2] = r * Math.sin(ph) * Math.sin(th);
 }
-const starGeo = new THREE.BufferGeometry();
-starGeo.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
-const starMat = new THREE.PointsMaterial({
-  color: 0xffffff,
-  size: 0.08,
-  transparent: true,
-  opacity: 0.85,
-  sizeAttenuation: true,
-});
-scene.add(new THREE.Points(starGeo, starMat));
+const stGeo = new THREE.BufferGeometry();
+stGeo.setAttribute("position", new THREE.BufferAttribute(stP, 3));
+const stMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.07, transparent: true, opacity: 0.8, sizeAttenuation: true });
+scene.add(new THREE.Points(stGeo, stMat));
 
-// ── Floating embers ──────────────────────────────────────────
-const particleCount = 80;
-const pPositions = new Float32Array(particleCount * 3);
-const pVelocities = [];
-for (let i = 0; i < particleCount; i++) {
-  pPositions[i * 3] = (Math.random() - 0.5) * 12;
-  pPositions[i * 3 + 1] = Math.random() * 6 - 1;
-  pPositions[i * 3 + 2] = (Math.random() - 0.5) * 12;
-  pVelocities.push(new THREE.Vector3(
-    (Math.random() - 0.5) * 0.002,
-    Math.random() * 0.005 + 0.002,
-    (Math.random() - 0.5) * 0.002
-  ));
+// ── Embers ───────────────────────────────────────────────────
+const eC = 70;
+const eP = new Float32Array(eC * 3);
+const eV = [];
+for (let i = 0; i < eC; i++) {
+  eP[i*3] = (Math.random()-0.5)*11;
+  eP[i*3+1] = Math.random()*5-1;
+  eP[i*3+2] = (Math.random()-0.5)*11;
+  eV.push(new THREE.Vector3((Math.random()-0.5)*0.002, Math.random()*0.004+0.002, (Math.random()-0.5)*0.002));
 }
-const pGeo = new THREE.BufferGeometry();
-pGeo.setAttribute("position", new THREE.BufferAttribute(pPositions, 3));
-const pMat = new THREE.PointsMaterial({
-  color: 0xffaa44,
-  size: 0.04,
-  transparent: true,
-  opacity: 0.6,
-});
-const particles = new THREE.Points(pGeo, pMat);
-scene.add(particles);
-
-// ── Camera ───────────────────────────────────────────────────
-let cameraAngle = 0.5;
-const cameraRadius = 5.5;
-const cameraHeight = 2.0;
+const eGeo = new THREE.BufferGeometry();
+eGeo.setAttribute("position", new THREE.BufferAttribute(eP, 3));
+const eMat = new THREE.PointsMaterial({ color: 0xffaa44, size: 0.035, transparent: true, opacity: 0.55 });
+const embers = new THREE.Points(eGeo, eMat);
+scene.add(embers);
 
 // ── Animation ────────────────────────────────────────────────
 const clock = new THREE.Clock();
@@ -829,61 +631,50 @@ function animate() {
   animId = requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
 
-  // Slow orbit
-  cameraAngle += 0.002;
-  camera.position.set(
-    Math.cos(cameraAngle) * cameraRadius,
-    cameraHeight + Math.sin(t * 0.25) * 0.25,
-    Math.sin(cameraAngle) * cameraRadius
-  );
-  camera.lookAt(0, 0.3, 0);
+  controls.update();
 
   // Breathing
-  const breathe = Math.sin(t * 1.2) * 0.02;
-  body.scale.set(1 + breathe, 1 + breathe * 0.5, 1 + breathe);
-  belly.scale.set(1 + breathe * 0.7, 1 + breathe * 0.4, 1 + breathe * 0.7);
+  const br = Math.sin(t * 1.2) * 0.018;
+  body.scale.set(1 + br, 1 + br * 0.5, 1 + br);
+  belly.scale.set(1 + br * 0.6, 1 + br * 0.35, 1 + br * 0.6);
 
-  // Head bob
-  headGroup.rotation.x = Math.sin(t * 0.9) * 0.04;
-  headGroup.rotation.y = Math.sin(t * 0.6) * 0.06;
-  headGroup.position.y = 0.68 + Math.sin(t * 1.2) * 0.015;
+  // Head
+  headGroup.rotation.x = Math.sin(t * 0.9) * 0.035;
+  headGroup.rotation.y = Math.sin(t * 0.55) * 0.05;
+  headGroup.position.y = 0.65 + Math.sin(t * 1.2) * 0.012;
 
-  // Wing flap (slower, more majestic)
-  const flapBase = Math.sin(t * 1.6) * 0.2 + 0.1;
-  leftWing.rotation.z = -flapBase;
-  rightWing.rotation.z = flapBase;
-  leftWing.rotation.x = Math.sin(t * 1.6 + 0.4) * 0.08;
-  rightWing.rotation.x = Math.sin(t * 1.6 + 0.4) * 0.08;
+  // Wings
+  const flap = Math.sin(t * 1.5) * 0.18 + 0.08;
+  leftWing.rotation.z = -flap;
+  rightWing.rotation.z = flap;
+  leftWing.rotation.x = Math.sin(t * 1.5 + 0.4) * 0.06;
+  rightWing.rotation.x = Math.sin(t * 1.5 + 0.4) * 0.06;
 
-  // Tail sway (wave propagation)
+  // Tail
   tailGroup.children.forEach((seg, i) => {
-    if (seg.isMesh) {
-      const phase = t * 1.2 + i * 0.45;
-      seg.position.x += Math.sin(phase) * 0.001;
-    }
+    if (seg.isMesh) seg.position.x += Math.sin(t * 1.1 + i * 0.42) * 0.0008;
   });
 
-  // Leg idle
-  [legFL, legFR, legBL, legBR].forEach((leg, i) => {
-    leg.rotation.x = (i < 2 ? 0.2 : -0.2) + Math.sin(t * 0.7 + i * 1.2) * 0.025;
+  // Legs
+  [legFL, legFR, legBL, legBR].forEach((l, i) => {
+    l.rotation.x = (i < 2 ? 0.18 : -0.18) + Math.sin(t * 0.65 + i * 1.1) * 0.02;
   });
 
-  // Ember particles
-  const positions = particles.geometry.attributes.position.array;
-  for (let i = 0; i < particleCount; i++) {
-    positions[i * 3] += pVelocities[i].x;
-    positions[i * 3 + 1] += pVelocities[i].y;
-    positions[i * 3 + 2] += pVelocities[i].z;
-    if (positions[i * 3 + 1] > 7) {
-      positions[i * 3] = (Math.random() - 0.5) * 12;
-      positions[i * 3 + 1] = -1;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 12;
+  // Embers
+  const ep = embers.geometry.attributes.position.array;
+  for (let i = 0; i < eC; i++) {
+    ep[i*3] += eV[i].x;
+    ep[i*3+1] += eV[i].y;
+    ep[i*3+2] += eV[i].z;
+    if (ep[i*3+1] > 6) {
+      ep[i*3] = (Math.random()-0.5)*11;
+      ep[i*3+1] = -1;
+      ep[i*3+2] = (Math.random()-0.5)*11;
     }
   }
-  particles.geometry.attributes.position.needsUpdate = true;
+  embers.geometry.attributes.position.needsUpdate = true;
 
-  // Star twinkle
-  starMat.opacity = 0.7 + Math.sin(t * 0.5) * 0.15;
+  stMat.opacity = 0.65 + Math.sin(t * 0.45) * 0.15;
 
   renderer.render(scene, camera);
 }
@@ -892,7 +683,7 @@ animate();
 
 // ── Resize ───────────────────────────────────────────────────
 window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(innerWidth, innerHeight);
 });
